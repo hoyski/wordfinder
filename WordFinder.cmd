@@ -1,0 +1,1 @@
+@java -cp D:\Users\Dave\.m2\repository\com\hoyski\wordfinder\1.0.0-SNAPSHOT\wordfinder-1.0.0-SNAPSHOT.jar;D:\Users\Dave\.m2\repository\com\hoyski\statistics\1.0.0-SNAPSHOT\statistics-1.0.0-SNAPSHOT.jar com.hoyski.wordfinder.WordFinder %*
