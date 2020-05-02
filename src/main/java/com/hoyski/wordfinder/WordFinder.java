@@ -5,286 +5,140 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-
-import com.hoyski.statistics.Combinator;
-import com.hoyski.statistics.Permutator;
 
 public class WordFinder
 {
-  private Set<String> dictionary;
-
-  /**
-   * WordFinderContext contains all of the state variables used during the process
-   * of finding words
-   */
-  private class WordFinderContext
+  private static class LengthFirstComparator implements Comparator<String>
   {
-    static final int      MAX_CHARS_ALLOWED    = 13;
-    static final int      DEFAULT_MIN_WORD_LEN = 3;
-
-    List<Character>       characters;
-    String                pattern;
-    int                   curWordLen;
-    Combinator<Character> combinator;
-    Permutator<Character> permutator;
-    Set<String>           foundWordsSet;
-    List<String>          foundWords;
-
-    long                  numWordsChecked;
-
-    public WordFinderContext(String c, int minimumWordLength, String pattern)
+    public int compare(String o1, String o2)
     {
-      // Validate the parameters
-      if (c == null || c.length() == 0)
+      if (o1.length() != o2.length())
       {
-        throw new IllegalArgumentException("Must provide at least 1 character");
-      }
-
-      if (c.length() > MAX_CHARS_ALLOWED)
-      {
-        throw new IllegalArgumentException(
-            "Cannot send more than " + MAX_CHARS_ALLOWED + " characters");
-      }
-
-      populateCharactersList(c, this);
-
-      for (Character curChar : characters)
-      {
-        if (!(curChar >= 'A' && curChar <= 'Z'))
-        {
-          throw new IllegalArgumentException("Only letters allowed");
-        }
-      }
-
-      if (minimumWordLength <= 0)
-      {
-        minimumWordLength = DEFAULT_MIN_WORD_LEN;
+        // Sort shorter Strings before longer
+        return o1.length() - o2.length();
       }
       else
       {
-        if (minimumWordLength > c.length())
-        {
-          throw new IllegalArgumentException(
-              "Minimum word length must not exceed the number of characters");
-        }
+        // Sort equal length Strings alphabetically
+        return o1.compareTo(o2);
       }
-
-      this.pattern = pattern;
-
-      curWordLen = minimumWordLength;
-
-      validatePattern();
-
-      if (characters.size() < curWordLen)
-      {
-        throw new IllegalArgumentException("Insufficent number of characters received");
-      }
-
-      combinator = new Combinator<Character>(characters, curWordLen);
-
-      permutator = new Permutator<Character>(combinator.nextCombination());
-
-      foundWordsSet = new HashSet<>();
-
-      foundWords = new ArrayList<>();
-
-      numWordsChecked = 0;
-    }
-
-    /**
-     * Ensure that the pattern is valid. Throw an exception if not
-     */
-    private void validatePattern()
-    {
-      if (pattern == null)
-      {
-        // No pattern specified. All good
-        return;
-      }
-
-      pattern = pattern.toUpperCase();
-
-      if (pattern.length() == 0 || pattern.length() > characters.size())
-      {
-        throw new IllegalArgumentException("Pattern is longer than the number of characters");
-      }
-
-      for (int i = 0; i < pattern.length(); ++i)
-      {
-        if (pattern.charAt(i) != '_' && !characters.contains(pattern.charAt(i)))
-        {
-          throw new IllegalArgumentException(
-              "Invalid pattern. Must contain only underscores or letters from the input string");
-        }
-      }
-
-      // Set the minimum word length to the pattern's length to avoid finding
-      // words that are too short
-      curWordLen = pattern.length();
     }
   }
+
+  private static final int MAX_MAX_WORDS_TO_RETURN = 1000;
+
+  private List<String>     dictionary;
 
   public WordFinder()
   {
     loadDictionary();
   }
 
-  public List<String> findWords(String c)
+  public FoundWords findWords(String c, int minimumWordLength, String pattern, int indexOfFirst,
+      int maxToReturn)
   {
-    return findWords(c, 1, null);
-  }
+    FoundWords foundWords = new FoundWords();
 
-  public List<String> findWords(String c, int minimumLength)
-  {
-    return findWords(c, minimumLength, null);
-  }
+    foundWords.setFoundWords(new ArrayList<String>());
+    foundWords.setTotalMatches(0);
+    foundWords.setIndexOfFirst(indexOfFirst);
 
-  public List<String> findWords(String c, String pattern)
-  {
-    return findWords(c, 1, pattern);
-  }
-
-  public List<String> findWords(String c, int minimumWordLength, String pattern)
-  {
-    WordFinderContext context = new WordFinderContext(c, minimumWordLength, pattern);
-
-    String            word;
-
-    if (context.characters.size() < context.curWordLen)
+    if (minimumWordLength < 1)
     {
-      // Not enough characters
-      return context.foundWords;
+      minimumWordLength = 1;
     }
 
-    while ((word = findNextWord(context)) != null)
+    if (c == null || c.length() == 0 || c.length() < minimumWordLength)
     {
-      context.foundWordsSet.add(word);
+      // Nothing can match. Return an empty list
+      return foundWords;
     }
 
-    for (String foundWord : context.foundWordsSet)
+    if (maxToReturn < 1 || maxToReturn > MAX_MAX_WORDS_TO_RETURN)
     {
-      if (matchesPattern(context, foundWord))
+      maxToReturn = MAX_MAX_WORDS_TO_RETURN;
+    }
+
+    validatePattern(pattern, c);
+
+    if (pattern != null)
+    {
+      pattern = pattern.toUpperCase();
+      if (minimumWordLength < pattern.length())
       {
-        context.foundWords.add(foundWord);
+        minimumWordLength = pattern.length();
       }
     }
-
-    context.foundWords.sort(new Comparator<String>()
-    {
-      public int compare(String o1, String o2)
-      {
-        if (o1.length() != o2.length())
-        {
-          // Sort shorter Strings before longer
-          return o1.length() - o2.length();
-        }
-        else
-        {
-          // Sort equal length Strings alphabetically
-          return o1.compareTo(o2);
-        }
-      };
-    });
-
-    System.out.println("Checked " + context.numWordsChecked + " potential words and found "
-        + context.foundWords.size());
-
-    return context.foundWords;
-  }
-
-  private String findNextWord(WordFinderContext context)
-  {
-    String          word = null;
-    String          potentialWord;
-    boolean         done = false;
-    List<Character> potentialWordChars;
-
-    // Handle special case of minimum word length being longer than number of
-    // supplied characters
-    if (context.curWordLen > context.characters.size())
-    {
-      return null;
-    }
-
-    while (word == null && !done)
-    {
-      // Check permutations until the permutator is exhausted or a word is found
-      while (word == null && (potentialWordChars = context.permutator.nextPermutation()) != null)
-      {
-        potentialWord = characterListToString(potentialWordChars);
-
-        if (dictionary.contains(potentialWord))
-        {
-          word = potentialWord;
-        }
-
-        context.numWordsChecked++;
-      }
-
-      if (word == null)
-      {
-        // Exhausted the permutator without finding a word. Try the next combination, if
-        // any
-        List<Character> nextCombination = context.combinator.nextCombination();
-
-        if (nextCombination == null)
-        {
-          // No more combinations. Build a new combinator for the next higher number of
-          // characters, if possible
-          context.curWordLen++;
-
-          if (context.curWordLen > context.characters.size())
-          {
-            // Exhausted the last combinator
-            done = true;
-          }
-          else
-          {
-            context.combinator = new Combinator<Character>(context.characters, context.curWordLen);
-            context.permutator = new Permutator<Character>(context.combinator.nextCombination());
-          }
-        }
-        else
-        {
-          context.permutator = new Permutator<Character>(nextCombination);
-        }
-      }
-    }
-
-    return word;
-  }
-
-  private void populateCharactersList(String c, WordFinderContext context)
-  {
-    context.characters = new ArrayList<>(c.length());
 
     c = c.toUpperCase();
 
-    for (int i = 0; i < c.length(); ++i)
+    for (String dictionaryWord : dictionary)
     {
-      context.characters.add(new Character(c.charAt(i)));
+      if (dictionaryWord.length() >= minimumWordLength && wordContainedInChars(dictionaryWord, c))
+      {
+        if (matchesPattern(pattern, dictionaryWord))
+        {
+          if (foundWords.getTotalMatches() >= indexOfFirst
+              && foundWords.getTotalMatches() < indexOfFirst + maxToReturn)
+          {
+            foundWords.getFoundWords().add(dictionaryWord);
+          }
+
+          foundWords.setTotalMatches(foundWords.getTotalMatches() + 1);
+        }
+      }
+    }
+
+    // foundWords.getFoundWords().sort(new LengthFirstComparator());
+
+    return foundWords;
+  }
+
+  /**
+   * Ensure that the pattern is valid. Throw an exception if not
+   */
+  private void validatePattern(String pattern, String characters)
+  {
+    if (pattern == null)
+    {
+      // No pattern specified. All good
+      return;
+    }
+
+    pattern = pattern.toUpperCase();
+
+    if (pattern.length() == 0 || pattern.length() > characters.length())
+    {
+      throw new IllegalArgumentException("Pattern is longer than the number of characters");
+    }
+
+    for (int i = 0; i < pattern.length(); ++i)
+    {
+      if (pattern.charAt(i) != '_' && characters.indexOf(pattern.charAt(i)) == -1)
+      {
+        throw new IllegalArgumentException(
+            "Invalid pattern. Must contain only underscores or letters from the input string");
+      }
     }
   }
 
-  private boolean matchesPattern(WordFinderContext context, String candidateWord)
+  private boolean matchesPattern(String pattern, String candidateWord)
   {
-    if (context.pattern == null)
+    if (pattern == null)
     {
       // Not matching on a pattern so everything matches
       return true;
     }
 
-    if (candidateWord.length() != context.pattern.length())
+    if (candidateWord.length() != pattern.length())
     {
       return false;
     }
 
-    for (int i = 0; i < context.pattern.length(); ++i)
+    for (int i = 0; i < pattern.length(); ++i)
     {
-      if (context.pattern.charAt(i) != '_' && context.pattern.charAt(i) != candidateWord.charAt(i))
+      if (pattern.charAt(i) != '_' && pattern.charAt(i) != candidateWord.charAt(i))
       {
         return false;
       }
@@ -298,7 +152,7 @@ public class WordFinder
   {
     String word;
 
-    dictionary = new HashSet<>();
+    dictionary = new ArrayList<>();
 
     try (BufferedReader br = new BufferedReader(
         new InputStreamReader(this.getClass().getResourceAsStream("/words.txt"))))
@@ -312,17 +166,45 @@ public class WordFinder
     {
       throw new RuntimeException("Error loading words.txt", e);
     }
+
+    dictionary.sort(new LengthFirstComparator());
   }
 
-  private String characterListToString(List<Character> wordChars)
+  /**
+   * Returns {@code true} if all of the letters in {@code word} are contained in
+   * {@code chars}. For repeated letters in {@code word} at least as many
+   * occurrences must exist in {@code chars}. Otherwise, return {@code false}.
+   * 
+   * @param word
+   * @param chars
+   * @return
+   */
+  public static boolean wordContainedInChars(String word, String chars)
   {
-    StringBuilder wordBuilder = new StringBuilder();
-
-    for (Character wordChar : wordChars)
+    for (int i = 0; i < word.length(); ++i)
     {
-      wordBuilder.append(wordChar);
+      if (countChars(word, word.charAt(i)) > countChars(chars, word.charAt(i)))
+      {
+        return false;
+      }
     }
 
-    return wordBuilder.toString();
+    // If made it this far then word is contained in chars
+    return true;
+  }
+
+  private static int countChars(String str, char charToCount)
+  {
+    int numChars = 0;
+
+    for (int i = 0; i < str.length(); ++i)
+    {
+      if (str.charAt(i) == charToCount)
+      {
+        numChars++;
+      }
+    }
+
+    return numChars;
   }
 }

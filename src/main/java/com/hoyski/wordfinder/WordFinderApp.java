@@ -1,7 +1,5 @@
 package com.hoyski.wordfinder;
 
-import java.util.List;
-
 public class WordFinderApp
 {
 
@@ -31,22 +29,22 @@ public class WordFinderApp
 
     try
     {
-      long         start      = System.currentTimeMillis();
+      long       start      = System.currentTimeMillis();
 
-      WordFinder   wordFinder = new WordFinder();
+      WordFinder wordFinder = new WordFinder();
 
-      List<String> foundWords = wordFinder.findWords(args[0], minimumWordLength, pattern);
+      FoundWords foundWords = wordFinder.findWords(args[0], minimumWordLength, pattern, 0, 100);
 
-      long         end        = System.currentTimeMillis();
+      long       end        = System.currentTimeMillis();
 
-      for (String word : foundWords)
+      for (String word : foundWords.getFoundWords())
       {
         System.out.println(word);
       }
 
       System.out.println();
-      System.out
-          .println(String.format("Found %d words in %d ms", foundWords.size(), (end - start)));
+      System.out.println(String.format("Found %d words in %d ms", foundWords.getFoundWords().size(),
+          (end - start)));
     }
     catch (Exception e)
     {

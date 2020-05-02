@@ -7,7 +7,7 @@
 
 	<groupId>com.hoyski</groupId>
 	<artifactId>wordfinder</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.1.0</version>
 	<packaging>jar</packaging>
 
 	<name>WordFinder</name>
@@ -49,12 +49,4 @@
 		</plugins>
 	</build>
 
-
-	<dependencies>
-		<dependency>
-			<groupId>com.hoyski</groupId>
-			<artifactId>statistics</artifactId>
-			<version>1.0.1-SNAPSHOT</version>
-		</dependency>
-	</dependencies>
 </project>
