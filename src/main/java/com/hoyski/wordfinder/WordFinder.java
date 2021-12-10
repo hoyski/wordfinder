@@ -6,25 +6,10 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public class WordFinder
 {
-  private static class LengthFirstComparator implements Comparator<String>
-  {
-    public int compare(String o1, String o2)
-    {
-      if (o1.length() != o2.length())
-      {
-        // Sort shorter Strings before longer
-        return o1.length() - o2.length();
-      }
-      else
-      {
-        // Sort equal length Strings alphabetically
-        return o1.compareTo(o2);
-      }
-    }
-  }
 
   private static final int MAX_MAX_WORDS_TO_RETURN = 1000;
 
@@ -159,8 +144,13 @@ public class WordFinder
     {
       while ((word = br.readLine()) != null)
       {
-        dictionary.add(word.toUpperCase());
+        if (word.toLowerCase().equals(word)) {
+          // 'word' is all lowercase. Add it to to the dictionary
+          dictionary.add(word.toUpperCase());
+        }
       }
+
+
     }
     catch (IOException e)
     {
